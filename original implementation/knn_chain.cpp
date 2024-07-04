@@ -11,9 +11,11 @@
 #include <bits/stdc++.h>
 #include <chrono>
 #include <omp.h>
-
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 using namespace std::chrono;
 using namespace std;
+namespace py = pybind11;
 
 static inline
 int argmin(vector<double>& dists) {
@@ -23,7 +25,7 @@ int argmin(vector<double>& dists) {
 }
 
 static inline
-constexpr double ward(int size_a, int size_b, const double *pos_a, const double *pos_b, int dim) {
+double ward(int size_a, int size_b, const double *pos_a, const double *pos_b, int dim) {
     /* calculates the ward for one cluster to another */
     double result = 0.0;
     double s = static_cast<double>(size_a * size_b) / (size_a + size_b);
@@ -36,13 +38,16 @@ constexpr double ward(int size_a, int size_b, const double *pos_a, const double 
 }
 
 static inline
-vector<int> get_top_k(int i, const vector<int>& size, vector<vector<double>>& pos, const unordered_set<int>& active, int k, int dim) {
-    vector<int> active_, sorting, top_k, index;
+vector<int> get_top_k(int i, const vector<int>& size, const vector<vector<double>>& pos, const unordered_set<int>& active, int k, int dim) {
+    vector<int> active_, top_k, index;
     vector<double> dists;
     double ds;
-    int c, size_i = size[i];
+    int a = active.size()-1, size_i = size[i];
     const double* pos_i = pos[i].data();
-#pragma omp parallel
+    top_k.reserve(k);
+    active_.reserve(a);
+    dists.reserve(a);
+
     for (auto j = active.begin(); j != active.end(); ++j) {
         if (*j != i) {
             active_.push_back(*j);
@@ -50,25 +55,28 @@ vector<int> get_top_k(int i, const vector<int>& size, vector<vector<double>>& po
             dists.push_back( ds );
         }
     }
-    vector<int> indices(dists.size());
+
+    vector<int> indices(a);
     iota(indices.begin(), indices.end(), 0);
 
     partial_sort(indices.begin(), indices.begin() + k, indices.end(), [&](int a, int b) {
         return dists[a] < dists[b];
     });
-    top_k.reserve(k);
 
     for (int index = 0; index < k; ++index) {
         top_k.push_back(active_[indices[index]]);
     }
-
+    
+    for (int index = 0; index < k; ++index) {
+        top_k.push_back(active_[indices[index]]);
+    }
     return top_k;
 }
 
-vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 5) {
+vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 1) {
     /*Calculates the NN chain algorithm with on the fly distances*/
     // Variable declaration & definition
-    int i, j, m, index, m_index, new_index, tmp_size, n = X.size(), dim = X[0].size();
+    int i, j, m, index, new_index, tmp_size, n = X.size(), dim = X[0].size();
     double tmp_dist;
     vector<vector<double>> dendrogram, pos = X;
     vector<int> size, chain, tmp_knn;
@@ -100,7 +108,7 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 5) {
         if (!chain.size()) {
             i = *active.begin();
             chain.push_back(i);
-            tmp_knn = get_top_k(i, size, pos, active, 5, dim);
+            tmp_knn = get_top_k(i, size, pos, active, k, dim);
             knn.push_back(tmp_knn);
         }
         // Continue chain
@@ -108,8 +116,7 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 5) {
             i = chain.back();
             tmp_knn = knn.back();
             m = -1;
-            // for (index = 0; index < k; index++) {
-            for (index = 0; index < tmp_knn.size(); index++) {
+            for (index = 0; index < (int)tmp_knn.size(); index++) {
                 if (active.find(tmp_knn[index]) != active.end()) {
                     m = index;
                     break;
@@ -117,7 +124,7 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 5) {
             }
             if (m <= 0) {
                 if (m < 0) {
-                    tmp_knn = get_top_k(i, size, pos, active, 5, dim);
+                    tmp_knn = get_top_k(i, size, pos, active, k, dim);
                 }
                 j = tmp_knn[0];
                 knn.back() = tmp_knn;
@@ -135,7 +142,6 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 5) {
                 clusters.insert(tmp_knn[m]);
                 vector<double> dists;
                 for (auto index = clusters.begin(); index != clusters.end(); ++index) {
-                    // tmp_dist = ward(pos[i].data(), pos[*index].data(), dim);
                     tmp_dist = ward(size[i], size[*index], pos[i].data(), pos[*index].data(), dim);
                     dists.push_back(tmp_dist);
                 }
@@ -146,17 +152,17 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 5) {
                 break;
             }
             chain.push_back(j);
-            tmp_knn = get_top_k(j, size, pos, active, 5, dim);
+            tmp_knn = get_top_k(j, size, pos, active, k, dim);
             knn.push_back(tmp_knn);
         }
         // Merging i, j
-        tmp_dist = sqrt(2 * ward(size[i], size[j], pos[i].data(), pos[j].data(), dim) );
         tmp_size = size[i] + size[j];
+        tmp_dist = sqrt(2 * ward(size[i], size[j], pos[i].data(), pos[j].data(), dim) );
         dendrogram.push_back({static_cast<double>(i), static_cast<double>(j), tmp_dist, static_cast<double>(tmp_size)});
 
         // Update Variables
         centroid = {};
-        for (index = 0; index < pos[i].size(); index++) {
+        for (index = 0; index < (int)pos[i].size(); index++) {
             centroid.push_back( (size[i] * pos[i][index] + size[j] * pos[j][index] ) / tmp_size );
         }
         pos.push_back(centroid);
@@ -177,8 +183,8 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 5) {
         reverse_mapping[new_index] = union_set;
 
         // Update active set
-        active.erase(k = i);
-        active.erase(k = j);
+        active.erase(i);
+        active.erase(j);
         active.insert(new_index);
 
         chain.erase(chain.end()-2, chain.end());
@@ -243,3 +249,9 @@ int main(){
     */
     return 0;
 }
+
+PYBIND11_MODULE(knn_chain, m) {
+    m.doc() = "knn_chain clustering algorithm";
+    m.def("knn_chain", &knn_chain, "knn-chain clustering");
+}
+
