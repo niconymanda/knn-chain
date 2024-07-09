@@ -29,7 +29,7 @@ double ward(int size_a, int size_b, const double *pos_a, const double *pos_b, in
     /* calculates the ward for one cluster to another */
     double result = 0.0;
     double s = static_cast<double>(size_a * size_b) / (size_a + size_b);
-#pragma omp parallel
+#pragma omp parallel for reduction(+:result)
     for (int i = 0; i < dim; ++i) {
         double diff = pos_a[i] - pos_b[i];
         result += diff * diff;
