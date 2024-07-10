@@ -25,26 +25,27 @@ int argmin(vector<double>& dists) {
 }
 
 static inline
-double ward(int size_a, int size_b, const double *pos_a, const double *pos_b, int dim) {
+double ward(int size_a, int size_b, const double* pos_a, const double* pos_b, int dim) {
     /* calculates the ward for one cluster to another */
-    double result = 0.0;
+    double result, diff = 0.0;
     double s = static_cast<double>(size_a * size_b) / (size_a + size_b);
 #pragma omp parallel for reduction(+:result)
     for (int i = 0; i < dim; ++i) {
-        double diff = pos_a[i] - pos_b[i];
+        diff = pos_a[i] - pos_b[i];
         result += diff * diff;
     }
     return s * result;
 }
 
-static inline
-vector<int> get_top_k(int i, const vector<int>& size, const vector<vector<double>>& pos, const unordered_set<int>& active, int k, int dim) {
-    vector<int> active_, top_k, index;
+// static inline
+void get_top_k(int i, const vector<int>& size, const vector<vector<double>>& pos, const unordered_set<int>& active, int k, int dim, vector<int>* top_k) {
+    vector<int> active_;
     vector<double> dists;
     double ds;
     int a = active.size()-1, size_i = size[i];
     const double* pos_i = pos[i].data();
-    top_k.reserve(k);
+    top_k->clear();
+    top_k->reserve(k);
     active_.reserve(a);
     dists.reserve(a);
 
@@ -64,13 +65,8 @@ vector<int> get_top_k(int i, const vector<int>& size, const vector<vector<double
     });
 
     for (int index = 0; index < k; ++index) {
-        top_k.push_back(active_[indices[index]]);
+        top_k->push_back(active_[indices[index]]);
     }
-    
-    for (int index = 0; index < k; ++index) {
-        top_k.push_back(active_[indices[index]]);
-    }
-    return top_k;
 }
 
 vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 1) {
@@ -79,12 +75,20 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 1) {
     int i, j, m, index, new_index, tmp_size, n = X.size(), dim = X[0].size();
     double tmp_dist;
     vector<vector<double>> dendrogram, pos = X;
-    vector<int> size, chain, tmp_knn;
+    vector<int> size, chain, top_k;
     vector<double> dists, centroid;
     vector<vector<int>> knn;
     unordered_set<int> active, tmp_rev_mapping;
     unordered_map<int, int> mapping;
     unordered_map<int, unordered_set<int>> reverse_mapping;
+    
+    pos.reserve(2*n-3);
+    top_k.reserve(k);
+    dendrogram.reserve(2*n-1);
+    size.reserve(2*n-1);
+    centroid.reserve(dim);
+    active.reserve(n);
+
     for (int i = 0; i < n; i++) {
         size.push_back(1);
         mapping[i] = i;
@@ -100,7 +104,7 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 1) {
             ++it;
             int j = *it;
             tmp_size = size[i] + size[j];
-            tmp_dist = sqrt(2 * ward(size[i], size[j], pos[i].data(), pos[j].data(), dim) );
+            tmp_dist = sqrt( 2 * ward(size[i], size[j], pos[i].data(), pos[j].data(), dim) );
             dendrogram.push_back({static_cast<double>(i), static_cast<double>(j), tmp_dist, static_cast<double>(tmp_size)});
             return dendrogram;
         }
@@ -108,38 +112,38 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 1) {
         if (!chain.size()) {
             i = *active.begin();
             chain.push_back(i);
-            tmp_knn = get_top_k(i, size, pos, active, k, dim);
-            knn.push_back(tmp_knn);
+            get_top_k(i, size, pos, active, k, dim, &top_k);
+            knn.push_back(top_k);
         }
         // Continue chain
         while (chain.size()) {
             i = chain.back();
-            tmp_knn = knn.back();
+            top_k = knn.back();
             m = -1;
-            for (index = 0; index < (int)tmp_knn.size(); index++) {
-                if (active.find(tmp_knn[index]) != active.end()) {
+            for (index = 0; index < (int)top_k.size(); index++) {
+                if (active.find(top_k[index]) != active.end()) {
                     m = index;
                     break;
                 }
             }
             if (m <= 0) {
                 if (m < 0) {
-                    tmp_knn = get_top_k(i, size, pos, active, k, dim);
+                    get_top_k(i, size, pos, active, k, dim, &top_k);
                 }
-                j = tmp_knn[0];
-                knn.back() = tmp_knn;
+                j = top_k[0];
+                knn.back() = top_k;
             }
             else {
                 unordered_set<int> indices;
                 for (index = 0; index < m; index++) {
-                    tmp_rev_mapping = reverse_mapping[tmp_knn[index]];
+                    tmp_rev_mapping = reverse_mapping[top_k[index]];
                     indices.insert(tmp_rev_mapping.begin(), tmp_rev_mapping.end());
                 }
                 unordered_set<int> clusters;
                 for (int index : indices) {
                     clusters.insert(mapping[index]);
                 }
-                clusters.insert(tmp_knn[m]);
+                clusters.insert(top_k[m]);
                 vector<double> dists;
                 for (auto index = clusters.begin(); index != clusters.end(); ++index) {
                     tmp_dist = ward(size[i], size[*index], pos[i].data(), pos[*index].data(), dim);
@@ -152,8 +156,8 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 1) {
                 break;
             }
             chain.push_back(j);
-            tmp_knn = get_top_k(j, size, pos, active, k, dim);
-            knn.push_back(tmp_knn);
+            get_top_k(j, size, pos, active, k, dim, &top_k);
+            knn.push_back(top_k);
         }
         // Merging i, j
         tmp_size = size[i] + size[j];
@@ -231,22 +235,10 @@ int main(){
 
     // vector<vector<double>> pos = {{1.0, 2.0}, {4.0, 5.0}, {2.0, 8.0}};
     auto start = high_resolution_clock::now();
-    vector<vector<double>> d = knn_chain(pos);
+    vector<vector<double>> d = knn_chain(pos, 5);
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
     cout << duration.count() * 0.000001 << endl; 
-    /*
-    Compiling at -O3 ==> 8.53 seconds for X.shape = (10 000, 100)
-    => compared to SciPy which executes in 7.568 seconds
-    */
-    /*
-    for (vector<double> dval : d) {
-        for (double val : dval) {
-            std::cout << val << " ";
-        }
-        std::cout << endl;
-    }
-    */
     return 0;
 }
 
