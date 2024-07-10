@@ -37,7 +37,6 @@ double ward(int size_a, int size_b, const double* pos_a, const double* pos_b, in
     return s * result;
 }
 
-// static inline
 void get_top_k(int i, const vector<int>& size, const vector<vector<double>>& pos, const unordered_set<int>& active, int k, int dim, vector<int>* top_k) {
     vector<int> active_;
     vector<double> dists;
@@ -235,7 +234,7 @@ int main(){
 
     // vector<vector<double>> pos = {{1.0, 2.0}, {4.0, 5.0}, {2.0, 8.0}};
     auto start = high_resolution_clock::now();
-    vector<vector<double>> d = knn_chain(pos, 5);
+    vector<vector<double>> d = knn_chain(pos);
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
     cout << duration.count() * 0.000001 << endl; 
