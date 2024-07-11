@@ -27,16 +27,17 @@ int argmin(vector<double>& dists) {
 static inline
 double ward(int size_a, int size_b, const double* pos_a, const double* pos_b, int dim) {
     /* calculates the ward for one cluster to another */
-    double result, diff = 0.0;
+    double result = 0.0;
     double s = static_cast<double>(size_a * size_b) / (size_a + size_b);
 #pragma omp parallel for reduction(+:result)
     for (int i = 0; i < dim; ++i) {
-        diff = pos_a[i] - pos_b[i];
+        double diff = pos_a[i] - pos_b[i];
         result += diff * diff;
     }
     return s * result;
 }
 
+// static inline
 void get_top_k(int i, const vector<int>& size, const vector<vector<double>>& pos, const unordered_set<int>& active, int k, int dim, vector<int>* top_k) {
     vector<int> active_;
     vector<double> dists;
@@ -86,7 +87,6 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 1) {
     dendrogram.reserve(2*n-1);
     size.reserve(2*n-1);
     centroid.reserve(dim);
-    active.reserve(n);
 
     for (int i = 0; i < n; i++) {
         size.push_back(1);
@@ -234,15 +234,27 @@ int main(){
 
     // vector<vector<double>> pos = {{1.0, 2.0}, {4.0, 5.0}, {2.0, 8.0}};
     auto start = high_resolution_clock::now();
-    vector<vector<double>> d = knn_chain(pos);
+    vector<vector<double>> d = knn_chain(pos, 5);
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
     cout << duration.count() * 0.000001 << endl; 
+    /*
+    Compiling at -O3 ==> 8.53 seconds for X.shape = (10 000, 100)
+    => compared to SciPy which executes in 7.568 seconds
+    */
+    /*
+    for (vector<double> dval : d) {
+        for (double val : dval) {
+            std::cout << val << " ";
+        }
+        std::cout << endl;
+    }
+    */
     return 0;
 }
+
 
 PYBIND11_MODULE(knn_chain, m) {
     m.doc() = "knn_chain clustering algorithm";
     m.def("knn_chain", &knn_chain, "knn-chain clustering");
 }
-
