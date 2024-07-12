@@ -1,6 +1,6 @@
 # Variables
 CXX = g++
-CXXFLAGS = -O3 -Wall -shared -std=c++11 -fPIC -fopenmp $(shell python3 -m pybind11 --includes)
+CXXFLAGS = -O3 -Wall -shared -std=c++11 -fPIC -mavx2 $(shell python3 -m pybind11 --includes)
 LDFLAGS = $(shell python3-config --ldflags)
 
 # Targets and dependencies
