@@ -26,7 +26,7 @@ int argmin(vector<double>& dists) {
 }
 
 
-static inline
+// static inline
 double ward(int size_a, int size_b, const double* pos_a, const double* pos_b, int dim) {
     /* calculates the ward for one cluster to another */
     __m256d sum = _mm256_setzero_pd();
@@ -38,16 +38,16 @@ double ward(int size_a, int size_b, const double* pos_a, const double* pos_b, in
         __m256d a = _mm256_loadu_pd(&pos_a[i]);
 		__m256d b = _mm256_loadu_pd(&pos_b[i]);
 
-        // Calculate difference
+        // Calculate the difference
         __m256d diff = _mm256_sub_pd(a, b);
-        // Square difference
+        // Square the difference
         __m256d square = _mm256_mul_pd(diff, diff);
-        // Accumulate result
+        // Accumulate the result
         sum = _mm256_add_pd(sum, square);
     }
     double buffer[4];
-    _mm256_storeu_pd(buffer, sum); // Store SIMD result into array
-    result = buffer[0] + buffer[1] + buffer[2] + buffer[3]; // Sum results
+    _mm256_storeu_pd(buffer, sum); // Store the SIMD result into an array
+    result = buffer[0] + buffer[1] + buffer[2] + buffer[3]; // Sum up the results
 
     // Handle remaining elems
     for (; i < dim; ++i) {
@@ -65,8 +65,9 @@ void get_top_k(int i, const vector<int>& size, const vector<vector<double>>& pos
     double ds;
     int a = active.size()-1, size_i = size[i];
     const double* pos_i = pos[i].data();
+    int p = min(k, a);
     top_k->clear();
-    top_k->reserve(k);
+    top_k->reserve(p); 
     active_.reserve(a);
     dists.reserve(a);
 
@@ -81,11 +82,11 @@ void get_top_k(int i, const vector<int>& size, const vector<vector<double>>& pos
     vector<int> indices(a);
     iota(indices.begin(), indices.end(), 0);
 
-    partial_sort(indices.begin(), indices.begin() + k, indices.end(), [&](int a, int b) {
+    partial_sort(indices.begin(), indices.begin() + p, indices.end(), [&](int a, int b) {
         return dists[a] < dists[b];
     });
 
-    for (int index = 0; index < k; ++index) {
+    for (int index = 0; index < p; ++index) {
         top_k->push_back(active_[indices[index]]);
     }
 }
@@ -256,7 +257,7 @@ int main(){
 
     // vector<vector<double>> pos = {{1.0, 2.0}, {4.0, 5.0}, {2.0, 8.0}};
     auto start = high_resolution_clock::now();
-    vector<vector<double>> d = knn_chain(pos, 5);
+    vector<vector<double>> d = knn_chain(pos, 7);
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
     cout << duration.count() * 0.000001 << endl; 
