@@ -1,62 +1,69 @@
 import numpy as np
 cimport numpy as np
 import cython
+from libcpp.vector cimport vector
+from libcpp.set cimport set as unordered_set
+from libc.math cimport sqrt
 
-@cython.infer_types(True) 
-@cython.wraparound(False)
-@cython.boundscheck(False)
-@cython.nonecheck(False)
-cdef double ward(int size_a, int size_b, np.ndarray[double, ndim=1] pos_a, np.ndarray[double, ndim=1] pos_b):
+cdef double ward(int size_a, int size_b, const vector[double]& pos_a, const vector[double]& pos_b, int dim) :
     """calculates the ward for one cluster to another"""
-    cdef int i, n = pos_a.shape[0]
-    cdef double result = 0.0
-    cdef double diff = 0.0
-
-    for i in range(n):
+    cdef double diff, result = 0.0
+    cdef double s = (size_a * size_b) / (size_a + size_b)
+    for i in range(dim):
         diff = pos_a[i] - pos_b[i]
-        result += (diff) * (diff)
+        result += diff * diff
+    return s * result
 
-    return (size_a * size_b) / (size_a + size_b) * result
-
-@cython.infer_types(True) 
-@cython.wraparound(False)
-cpdef get_top_k(i, size, pos, active, k):
-    """Selects the top k of distances list and sorts these."""
-    cdef int s = len(active)-1
-    cdef np.ndarray[int, ndim=1] active_ = np.empty(s, dtype=np.int32)
-    cdef np.ndarray[double, ndim=1] dists = np.empty(s, dtype=np.double)
-    cdef int index = 0
-
+cdef vector[int] get_top_k(int i, vector[int]& size, vector[vector[double]]& pos, unordered_set[int]& active, int k, int dim):
+    """Finds the nearest k neighbours"""
+    cdef vector[int] active_, top_k
+    cdef vector[double] dists
+    cdef double ds
+    cdef int a = active.size() - 1
+    cdef int size_i = size[i]
+    cdef vector[double] pos_i = pos[i]
+    cdef int p = min(k, a)
+    
+    top_k.clear()
+    top_k.reserve(p)
+    active_.reserve(a)
+    dists.reserve(a)
+    
     for j in active:
         if j != i:
-            active_[index] = j
-            dists[index] = ward(size[i], size[j], pos[i], pos[j])
-            index += 1
+            active_.push_back(j)
+            ds = ward(size_i, size[j], pos_i, pos[j], dim)
+            dists.push_back(ds)
 
     sorting = np.argsort(dists)[:k]
-    top_k_sorted = active_[sorting]
-    return top_k_sorted
-
-@cython.infer_types(True) 
-cpdef knn_chain(X, k = 5):
-    """Calculates the NN chain algorithm with on the fly distances"""
     
-    n = len(X)
-    pos = [X[i] for i in range(n)]
-    size = [1 for i in range(n)]
+    for index in range(p):
+        top_k.push_back(active_[sorting[index]])
+    
+    return top_k
+   
 
+cpdef knn_chain(np.ndarray[np.double_t, ndim=2] X, int k = 5):
+    """Calculates the NN chain algorithm with on the fly distances"""
+
+    cdef vector[vector[double]] dendrogram, pos = X
+    cdef int i, j, m, index, new_index, tmp_size
+    cdef int n = pos.size(), dim = pos[0].size()
+    cdef double tmp_dist
+    cdef vector[int] size, chain, top_k
+    cdef vector[double] dists, centroid
+    cdef vector[vector[int]] knn
     active = {i for i in range(n)}
     mapping = {i: i for i in range(n)}
     reverse_mapping = {i: {i} for i in range(n)}
 
-    chain = []
-    knn = []
-
-    dendrogram = []
-
-    cdef int i, j, m, index, nn, new_index 
-    cdef double dist_
-    #cdef list knn_, dists
+    pos.reserve(2 * n - 3)
+    top_k.reserve(k)
+    dendrogram.reserve(2 * n - 1)
+    size.reserve(2 * n - 1)
+    centroid.reserve(dim)
+    for i in range(n):
+        size.push_back(1)
 
     # Activate loop
     while active:
@@ -64,66 +71,65 @@ cpdef knn_chain(X, k = 5):
         if len(active) == 2:
             i, j = active
             size_ = size[i] + size[j]
-            dist_ = ward(size[i], size[j], pos[i], pos[j])
-            dendrogram.append([i, j, np.sqrt(2 * dist_), size_])
+            dist_ = ward(size[i], size[j], pos[i], pos[j], dim)
+            dendrogram.push_back([i, j, np.sqrt(2 * dist_), size_])
             return dendrogram
         
         # New chain
         if not len(chain):
             i = next(iter(active))
-            chain.append(i)
+            chain.push_back(i)
 
-            knn_ = get_top_k(i, size, pos, active, k)
-            knn.append(knn_)
+            top_k = get_top_k(i, size, pos, active, k, dim)
+            knn.push_back(top_k)
 
         while len(chain):
 
-            i = chain[-1]
-
+            i = chain.back()
             m = -1
-            for index, nn in enumerate(knn[-1]):
-                if nn in active:
+            for index in range(knn.back().size()):
+                if knn.back()[index] in active:
                     m = index
                     break
-
             if m <= 0:
                 if m < 0:
-                    knn[-1] = get_top_k(i, size, pos, active, k)
-                j = knn[-1][0]
+                    knn.pop_back()
+                    knn.push_back(get_top_k(i, size, pos, active, k, dim))
+                j = knn.back()[0]
             else:
                 indices = set()
-                for nn in knn[-1][:m]:
-                    indices |= reverse_mapping[nn]
+                for index in range(m):
+                    indices |= reverse_mapping[knn.back()[index]]
                     
                 clusters = set()
                 for index in indices:
                     clusters.add(mapping[index])
                     
-                knn_ = list(clusters) + [knn[-1][m]]
-                dists = [ward(size[i], size[j], pos[i], pos[j]) for j in knn_]
-                j = knn_[np.argmin(dists)]
+                top_k = list(clusters) + [knn.back()[m]]
+                dists = [ward(size[i], size[j], pos[i], pos[j], dim) for j in top_k]
+                j = top_k[np.argmin(dists)]
 
-            if len(chain) > 1 and chain[-2] == j:
+            if chain.size() > 1 and chain[chain.size()-2] == j:
                 break
-
-            chain.append(j)
-
-            knn_ = get_top_k(j, size, pos, active, k)
-            knn.append(knn_)
+            
+            chain.push_back(j)
+            top_k = get_top_k(j, size, pos, active, k, dim)
+            knn.push_back(top_k)
 
         # Merge
-        dist_ = ward(size[i], size[j], pos[i], pos[j])
+        dist_ = ward(size[i], size[j], pos[i], pos[j], dim)
         size_ = size[i] + size[j]
-        dendrogram.append([i, j, np.sqrt(2 * dist_), size_])
+        dendrogram.push_back([i, j, np.sqrt(2 * dist_), size_])
     
         # Update variables
-        centroid = (size[i] * pos[i] + size[j] * pos[j] ) / size_
-        pos.append(centroid)
+        centroid = vector[double](dim)
+        for index in range(dim):
+            centroid[index] = (size[i] * pos[i][index] + size[j] * pos[j][index]) / size_
+        
+        pos.push_back(centroid)
         
         new_index = len(size)
-        size[i] = 0
-        size[j] = 0
-        size.append(size_)
+        size.push_back(size_)
         
         # Update mapping
         for index in reverse_mapping[i] | reverse_mapping[j]:
