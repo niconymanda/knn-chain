@@ -3,10 +3,8 @@
 #########################################################
 import numpy as np
 import json
-
 # Inputs
 from exp_setup import n, ks, all_ks, linear_ks, s_X, med_X, large_X, xl_X, xxl_X, mnist_data, bbc_matrix, adult
-
 # Functions
 from exp_setup import record_runtimes, record_nn_runtimes, record_memory, record_nn_mem
 
@@ -33,16 +31,16 @@ real_nn_time = record_nn_runtimes([mnist_data, bbc_matrix, adult], n)
 ############# MEMORY COMPLEXITY EXPERIMENTS #############
 ######################################################### 
 # 1. Synthetic Data
-s_mem = record_memory(s_X, all_ks, n)
-med_mem = record_memory(med_X, all_ks, n)
-large_mem = record_memory(large_X, all_ks, n)
-xl_mem = record_memory(xl_X, all_ks, n)
-xxl_mem = record_memory(xxl_X, all_ks, n)
+s_mem = record_memory(s_X, ks, n)
+med_mem = record_memory(med_X, ks, n)
+large_mem = record_memory(large_X, ks, n)
+xl_mem = record_memory(xl_X, ks, n)
+xxl_mem = record_memory(xxl_X, ks, n)
 
 # 2. Real Data
-mnist_mem = record_memory(mnist_data, all_ks, n)
-bbc_mem = record_memory(bbc_matrix, all_ks, n)
-adult_mem = record_memory(adult, all_ks, n)
+mnist_mem = record_memory(mnist_data, ks, n)
+bbc_mem = record_memory(bbc_matrix, ks, n)
+adult_mem = record_memory(adult, ks, n)
 
 # 3. Compare to NN Chain (SciPy)
 syn_nn_mems = record_nn_mem([s_X, med_X, large_X, xl_X, xxl_X], n)
@@ -83,5 +81,5 @@ output['memory'] = {
                     'real_nn_mems' : real_nn_mems
                     }
 
-with open('exp_output.json', 'w') as f:
+with open('tmp_exp_output.json', 'w') as f:
     json.dump(output, f)
