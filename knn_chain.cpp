@@ -25,7 +25,6 @@ int argmin(vector<double>& dists) {
     return min_i;
 }
 
-
 // static inline
 double ward(int size_a, int size_b, const double* pos_a, const double* pos_b, int dim) {
     /* calculates the ward for one cluster to another */
@@ -83,6 +82,10 @@ void get_top_k(int i, const vector<int>& size, const vector<vector<double>>& pos
     iota(indices.begin(), indices.end(), 0);
 
     partial_sort(indices.begin(), indices.begin() + p, indices.end(), [&](int a, int b) {
+        // return dists[a] < dists[b];
+        if (dists[a] == dists[b]) {
+            return active_[a] < active_[b]; 
+        }
         return dists[a] < dists[b];
     });
 
@@ -219,63 +222,6 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 1) {
 
     return dendrogram;
 }
-
-int main(){
-    // TESTING WARD
-    // int size_a, size_b;
-    // size_a = size_b = 1;
-    // vector<double> pos_a = {1.0, 2.0};
-    // vector<double> pos_b = {4.0, 5.0};
-    // cout << ward(size_a, size_b, pos_a, pos_b);
-
-    // TESTING GET_TOP_K
-    // vector<int> size = {1,1,1,1};
-    // vector<vector<double>> pos = {{1.0, 2.0}, {4.0, 5.0}, {2.0, 8.0}, {2.0, 10.0}};
-    // unordered_set<int> active = {0, 1, 2, 3};
-    // vector<int> top_k = get_top_k(0, size, pos, active, 2);
-
-    // TESTING KNN_CHAIN
-    string filename = "largeX";
-    vector<vector<double>> pos;
-    ifstream file(filename);
-    if (file.is_open()) {
-        string line;
-        while (getline(file, line)) {
-            vector<double> row;
-            istringstream iss(line);
-            double value;
-            while (iss >> value) {
-                row.push_back(value);
-            }
-            pos.push_back(row);
-        }
-        file.close();
-    } else {
-        cerr << "Unable to open file " << filename << std::endl;
-        return 1;
-    }
-
-    // vector<vector<double>> pos = {{1.0, 2.0}, {4.0, 5.0}, {2.0, 8.0}};
-    auto start = high_resolution_clock::now();
-    vector<vector<double>> d = knn_chain(pos, 7);
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<microseconds>(stop - start);
-    cout << duration.count() * 0.000001 << endl; 
-    /*
-    Compiling at -O3 ==> 8.53 seconds for X.shape = (10 000, 100)
-    => compared to SciPy which executes in 7.568 seconds
-    */
-    /*
-    for (vector<double> dval : d) {
-        for (double val : dval) {
-            std::cout << val << " ";
-        }
-        std::cout << endl;
-    }
-    */
-    return 0;
-}
-
 
 PYBIND11_MODULE(knn_chain, m) {
     m.doc() = "knn_chain clustering algorithm";

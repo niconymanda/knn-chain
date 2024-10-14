@@ -7,6 +7,7 @@ from scipy.cluster.hierarchy import ward
 from scipy.spatial.distance import pdist
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from scipy.io import mmread
@@ -26,6 +27,7 @@ import tracemalloc
 
 # Datasets
 import tensorflow as tf
+from sklearn.datasets import fetch_california_housing
 
 
 ######################################################## 
@@ -37,6 +39,8 @@ ks = [1, 3, 6, 10, 15]
 all_ks = [1, 3, 6, 10, 15, 20, 25, 30, 35, 40, 45, 50, 90]
 linear_ks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 colours = ListedColormap(['#0173b2', '#de8f05', '#029e73', '#d55e00', '#cc78bc', '#ca9161', '#fbafe4', '#949494'])
+dataset_sizes_syn = [996, 5000, 9990, 15000, 19980]
+dataset_sizes_real = [748, 2225, 4898, 1599, 20640, 30000, 30000, 34190, 38254]
 
 # Load synthetic datasets
 s_X = np.loadtxt("datasets/generated_smallX")
@@ -45,15 +49,10 @@ large_X = np.loadtxt("datasets/generated_largeX")
 xl_X = np.loadtxt("datasets/generated_xlargeX")
 xxl_X = np.loadtxt("datasets/generated_xxlargeX")
 
-dataset_sizes_syn = [996, 5000, 9990, 15000, 19980]
-
-# Load mnist
-mnist = tf.keras.datasets.mnist
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
-x_train, x_test = x_train / 255.0, x_test / 255.0
-n_images = x_train.shape[0]
-X_images = x_train.reshape(n_images, 28, 28)
-mnist_data = X_images.reshape(n_images, 28 * 28)[:30000]
+# Load Blood Transfusion
+blood_transfusion = pd.read_csv("datasets/blood_transfusion.csv")
+blood_transfusion['Class'] = blood_transfusion['Class'].map({"donated": 1, 'not donated': 0})
+blood_transfusion = np.array(blood_transfusion)
 
 # Load BBC news
 matrix = mmread('datasets/bbc.mtx')
@@ -66,18 +65,45 @@ bbc_tsne = tsne.fit_transform(bbc_matrix)
 
 classes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
 
+# Load Wine Quality
+df_white = pd.read_csv('datasets/winequality-white.csv', delimiter=';')
+df_red = pd.read_csv('datasets/winequality-red.csv', delimiter=';')
+white_wine = np.array(df_white)[:, :-1]
+red_wine = np.array(df_red)[:, :-1]
+
+# Load California housing
+cadata = fetch_california_housing().data
+
+# Load mnist
+mnist = tf.keras.datasets.mnist
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
+x_train, x_test = x_train / 255.0, x_test / 255.0
+n_images = x_train.shape[0]
+X_images = x_train.reshape(n_images, 28, 28)
+mnist_data = X_images.reshape(n_images, 28 * 28)[:30000]
+
+# Load FMNIST
+(fmnist, _), (_, _) = tf.keras.datasets.fashion_mnist.load_data()
+fmnist = fmnist.reshape(fmnist.shape[0], -1)[:30000]
+
 # Load Adult 
 adult = np.loadtxt("datasets/adult_train.data")
 adult = np.nan_to_num(adult)
 
-dataset_sizes_real = [30000, 2225, 34190]
-
-# adult_tsne = tsne.fit_transform(adult)
+# Load Biking
+bike = pd.read_csv("datasets/bike_rides.csv")
+bike['timestamp'] = pd.to_datetime(bike['timestamp'])
+bike['date'] = bike['timestamp'].dt.date
+bike['seconds_since_midnight'] = bike['timestamp'].dt.hour * 3600 + bike['timestamp'].dt.minute * 60 + bike['timestamp'].dt.second
+bike['norm_time'] = bike.groupby('date')['seconds_since_midnight'].transform(
+    lambda x: (x - x.min()) / (x.max() - x.min())
+)
+bike.drop(columns=['timestamp', 'seconds_since_midnight', 'date'], inplace=True)
+bike = np.array(bike)
 
 # Titles
 syn_titles = ['Synthetic Dataset 1','Synthetic Dataset 2','Synthetic Dataset 3','Synthetic Dataset 4','Synthetic Dataset 5']
-real_titles = ['MNIST','BBC News','Adult']
-
+real_titles = ['Blood Transfusion', 'BBC News', 'White Wine', 'Red Wine', 'California', 'MNIST',  'FMNIST', 'Adult Census', 'Bike']
 
 ################### OPTIMAL K INPUTS ###################
 init = [0, 1]
@@ -214,7 +240,10 @@ def plot_all_runtimes(times, ks, titles, label_indices):
 
 def plot_comparison(nn_chain_values, knn_chain_values, opt_values, x_labels, size=(12, 8)):
     n = len(nn_chain_values)
-    fig, axes = plt.subplots(1, n, figsize=size, sharey=False)
+    cols = 3
+    rows = (n + cols - 1) // cols  # Calculate the number of rows required
+    fig, axes = plt.subplots(rows, cols, figsize=size, sharey=False)
+    axes = axes.flatten() 
     barWidth = 0.35 
 
     for i in range(n):
@@ -222,22 +251,25 @@ def plot_comparison(nn_chain_values, knn_chain_values, opt_values, x_labels, siz
         br2 = [x + barWidth for x in br1]
         br3 = [x + barWidth for x in br2]
 
-        axes[i].bar(br1, nn_chain_values[i], color='#FFB000', width=.2, label='NN Chain', alpha=0.8)
-        axes[i].bar(br2, knn_chain_values[i], color='#785EF0', width=.2, label='K-NN Chain', alpha=0.8)
-        axes[i].bar(br3, opt_values[i], color='#DC267F', width=.2, label='Optimal-NN Chain', alpha=0.8)
+        axes[i].bar(br1, nn_chain_values[i], color='red', width=.2, label='NN Chain', alpha=0.7)
+        axes[i].bar(br2, knn_chain_values[i], color='#4F4FF9', width=.2, label='K-NN Chain', alpha=0.7)
+        axes[i].bar(br3, opt_values[i], color='green', width=.2, label='Optimal-NN Chain', alpha=0.7)
 
-        axes[i].set_title(f'{x_labels[i]}', fontsize=20, pad=10)
-        axes[i].set_ylabel('Execution Time', fontweight='bold', fontsize=12, labelpad=10)
+        axes[i].set_title(f'{x_labels[i]}', fontsize=22, pad=10)
+        axes[i].set_ylabel('Execution Time', fontweight='bold', fontsize=15, labelpad=10)
 
-        axes[i].text(br1[0], nn_chain_values[i], f'{nn_chain_values[i]:.4f}', ha='center', fontsize=11)
-        axes[i].text(br2[0], knn_chain_values[i], f'{knn_chain_values[i]:.4f}', ha='center', fontsize=11)
-        axes[i].text(br3[0], opt_values[i], f'{opt_values[i]:.4f}', ha='center', fontsize=11)
+        axes[i].text(br1[0], nn_chain_values[i], f'{nn_chain_values[i]:.4f}', ha='center', fontsize=13)
+        axes[i].text(br2[0], knn_chain_values[i], f'{knn_chain_values[i]:.4f}', ha='center', fontsize=13)
+        axes[i].text(br3[0], opt_values[i], f'{opt_values[i]:.4f}', ha='center', fontsize=13)
 
         axes[i].set_xticks([br1[0] + barWidth / 40, br2[0] + barWidth / 40, br3[0] + barWidth / 40])
-        axes[i].set_xticklabels(['NN Chain', '1-NN Chain', 'Optimal-NN Chain'], fontsize=10)
+        axes[i].set_xticklabels(['Precomputed', 'OTF', 'OTF w/ optimal k'], fontsize=13)
         axes[i].tick_params(axis='x', labelsize=10)
 
         axes[i].grid(True, which='both', color="#d3d3d3", linewidth=0.5, alpha=0.7)
+    
+    for i in range(n, rows * cols):
+        fig.delaxes(axes[i])
 
     fig.tight_layout(rect=[0, 0, 0.85, 1])
     plt.show()
@@ -254,14 +286,14 @@ def human_format(x, pos):
         return f'{x:.0f}'
 
 def plot_mem(nn_chain_results, knn_chain_results, dataset_sizes, x_title, x_labels, size = (12, 8)):
-    barWidth = 0.3
+    barWidth = 0.35
     fig, ax = plt.subplots(figsize=size)
 
     br1 = np.arange(len(nn_chain_results))
     br2 = [x + barWidth for x in br1]
 
-    ax.bar(br1, nn_chain_results, color='red', width=barWidth, label='NN Chain', alpha=0.7)
-    ax.bar(br2, knn_chain_results, color='#4F4FF9', width=barWidth, label='KNN Chain', alpha=0.7)
+    ax.bar(br1, nn_chain_results, color='red', width=barWidth, label='Pre-computed Distances', alpha=0.7)
+    ax.bar(br2, knn_chain_results, color='#4F4FF9', width=barWidth, label='On-The-Fly', alpha=0.7)
     ax.scatter((br1+br2)/2, dataset_sizes, color='#ffffff', marker="^", linewidths = 0.5, edgecolors='gray', s = 100, label='Dataset Size')
 
     ax.set_xlabel(x_title, fontweight='bold', fontsize=15, labelpad=15)
@@ -284,4 +316,12 @@ def plot_mem(nn_chain_results, knn_chain_results, dataset_sizes, x_title, x_labe
 
     plt.show()
 
-
+def custom_round(val):
+    if val < 1:
+        return round(val, 4)
+    elif val <= 10:
+        return round(val, 3)
+    elif val > 10 and val < 100:
+        return round(val, 2)
+    else:
+        return round(val, 1)
