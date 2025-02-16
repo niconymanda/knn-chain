@@ -25,8 +25,7 @@ int argmin(vector<double>& dists) {
     return min_i;
 }
 
-// static inline
-double ward(int size_a, int size_b, const double* pos_a, const double* pos_b, int dim) {
+double ward(double size_a, double size_b, const double* pos_a, const double* pos_b, int dim) {
     /* calculates the ward for one cluster to another */
     __m256d sum = _mm256_setzero_pd();
     double result = 0.0;
@@ -58,7 +57,7 @@ double ward(int size_a, int size_b, const double* pos_a, const double* pos_b, in
 }
 
 
-void get_top_k(int i, const vector<int>& size, const vector<vector<double>>& pos, const unordered_set<int>& active, int k, int dim, vector<int>* top_k) {
+void get_top_k(int i, const vector<double>& size, const vector<vector<double>>& pos, const unordered_set<int>& active, int k, int dim, vector<int>* top_k) {
     vector<int> active_;
     vector<double> dists;
     double ds;
@@ -82,7 +81,6 @@ void get_top_k(int i, const vector<int>& size, const vector<vector<double>>& pos
     iota(indices.begin(), indices.end(), 0);
 
     partial_sort(indices.begin(), indices.begin() + p, indices.end(), [&](int a, int b) {
-        // return dists[a] < dists[b];
         if (dists[a] == dists[b]) {
             return active_[a] < active_[b]; 
         }
@@ -95,14 +93,14 @@ void get_top_k(int i, const vector<int>& size, const vector<vector<double>>& pos
 }
 
 
-vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 1) {
+vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 1, vector<double> weights = {}) {
     /*Calculates the NN chain algorithm with on the fly distances*/
     // Variable declaration & definition
     int i, j, m, index, new_index, tmp_size, n = X.size(), dim = X[0].size();
     double tmp_dist;
     vector<vector<double>> dendrogram, pos = X;
-    vector<int> size, chain, top_k;
-    vector<double> dists, centroid;
+    vector<int> chain, top_k;
+    vector<double> size, dists, centroid;
     vector<vector<int>> knn;
     unordered_set<int> active, tmp_rev_mapping;
     unordered_map<int, int> mapping;
@@ -111,11 +109,20 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 1) {
     pos.reserve(2*n-3);
     top_k.reserve(k);
     dendrogram.reserve(2*n-1);
-    size.reserve(2*n-1);
     centroid.reserve(dim);
+    if (weights.empty()) {
+        size.reserve(2*n-1);
+        size.resize(n, 1.0);
+        // size.push_back(1.0);
+    }
+    else {
+        if (weights.size() !=  static_cast<size_t>(n)) {
+            throw invalid_argument("The length of the sample weights (" + std::to_string(weights.size()) + ") must be equal to the size of X (" + std::to_string(n) + ").");
+        }
+        size = weights;
+    }
 
     for (int i = 0; i < n; i++) {
-        size.push_back(1);
         mapping[i] = i;
         reverse_mapping[i] = {i};
         active.insert(i);
@@ -225,6 +232,5 @@ vector<vector<double>> knn_chain(vector<vector<double>> X, int k = 1) {
 
 PYBIND11_MODULE(knn_chain, m) {
     m.doc() = "knn_chain clustering algorithm";
-    m.def("knn_chain", &knn_chain, "knn-chain clustering");
+    m.def("knn_chain", &knn_chain, "knn-chain clustering", py::arg("X"), py::arg("k") = 1, py::arg("weights") = std::vector<double>{});
 }
-
